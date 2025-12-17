@@ -16,12 +16,12 @@ function extractSymbol() {
   console.log('[TV SnapMaster] 当前 URL:', window.location.href);
   console.log('[TV SnapMaster] 页面标题:', document.title);
 
-  // 策略 1: 从 URL 路径提取（最可靠）
-  const urlMatch = window.location.pathname.match(/\/chart\/([^\/]+)/);
-  if (urlMatch && urlMatch[1]) {
-    const rawSymbol = decodeURIComponent(urlMatch[1]);
-    console.log('[TV SnapMaster] 策略 1 (URL path): 原始 =', rawSymbol);
-    const cleaned = cleanSymbolName(rawSymbol);
+  // 策略 1: 从 URL 查询参数提取 (最可靠)
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlSymbol = urlParams.get('symbol') || urlParams.get('tvwidgetsymbol');
+  if (urlSymbol) {
+    console.log('[TV SnapMaster] 策略 1 (URL params): 原始 =', urlSymbol);
+    const cleaned = cleanSymbolName(urlSymbol);
     if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2 && cleaned.length <= 20) {
       console.log('[TV SnapMaster] 策略 1: 提取成功 =', cleaned);
       return cleaned;
@@ -40,15 +40,22 @@ function extractSymbol() {
     }
   }
 
-  // 策略 3: 从 URL 查询参数提取
-  const urlParams = new URLSearchParams(window.location.search);
-  const urlSymbol = urlParams.get('symbol') || urlParams.get('tvwidgetsymbol');
-  if (urlSymbol) {
-    console.log('[TV SnapMaster] 策略 3 (URL params): 原始 =', urlSymbol);
-    const cleaned = cleanSymbolName(urlSymbol);
-    if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2 && cleaned.length <= 20) {
-      console.log('[TV SnapMaster] 策略 3: 提取成功 =', cleaned);
-      return cleaned;
+  // 策略 3: 从 URL 路径提取（但要排除图表ID）
+  const urlMatch = window.location.pathname.match(/\/chart\/([^\/]+)/);
+  if (urlMatch && urlMatch[1]) {
+    const rawSymbol = decodeURIComponent(urlMatch[1]);
+    console.log('[TV SnapMaster] 策略 3 (URL path): 原始 =', rawSymbol);
+
+    // 跳过看起来像图表ID的值（混合大小写，通常8个字符）
+    const looksLikeChartId = /^[a-zA-Z0-9]{8}$/.test(rawSymbol) && /[a-z]/.test(rawSymbol) && /[A-Z]/.test(rawSymbol);
+    if (looksLikeChartId) {
+      console.log('[TV SnapMaster] 策略 3: 跳过（疑似图表ID）');
+    } else {
+      const cleaned = cleanSymbolName(rawSymbol);
+      if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2 && cleaned.length <= 20) {
+        console.log('[TV SnapMaster] 策略 3: 提取成功 =', cleaned);
+        return cleaned;
+      }
     }
   }
 
