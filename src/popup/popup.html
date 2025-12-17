@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TV SnapMaster</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body class="theme-dark">
+  <div class="container">
+    <!-- 标题 -->
+    <header class="header">
+      <h1 class="title">TV SnapMaster</h1>
+      <p class="subtitle">图表截图工具</p>
+    </header>
+
+    <!-- 周期按钮组 -->
+    <div class="interval-buttons">
+      <button class="interval-btn" data-interval="15m">15m</button>
+      <button class="interval-btn" data-interval="1h">1h</button>
+      <button class="interval-btn" data-interval="4h">4h</button>
+      <button class="interval-btn" data-interval="1D">1D</button>
+      <button class="interval-btn" data-interval="1W">1W</button>
+    </div>
+
+    <!-- 状态显示区域 -->
+    <div class="status-area">
+      <div class="status-indicator" id="statusIndicator">
+        <span class="status-dot" id="statusDot"></span>
+        <span class="status-text" id="statusText">准备就绪</span>
+      </div>
+      <div class="symbol-info" id="symbolInfo"></div>
+    </div>
+
+    <!-- 错误提示 -->
+    <div class="error-message" id="errorMessage" style="display: none;">
+      <span class="error-icon">⚠️</span>
+      <span class="error-text" id="errorText"></span>
+    </div>
+
+    <!-- 提示信息 -->
+    <div class="hint" id="hint">
+      点击按钮截取对应周期的图表
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

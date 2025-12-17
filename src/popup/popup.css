@@ -1,0 +1,274 @@
+/**
+ * TV SnapMaster - Popup 样式
+ * 深色/浅色主题支持
+ */
+
+/* ============================================================================
+   CSS 变量 - 主题
+   ============================================================================ */
+
+:root {
+  /* 深色主题（默认） */
+  --bg-primary: #131722;
+  --bg-secondary: #1e222d;
+  --bg-button: #2a2e39;
+  --bg-button-hover: #363a45;
+  --bg-button-active: #4c525e;
+  --text-primary: #d1d4dc;
+  --text-secondary: #787b86;
+  --text-muted: #5d606b;
+  --border-color: #363a45;
+  --accent-color: #2962ff;
+  --accent-hover: #1e53e4;
+  --success-color: #26a69a;
+  --error-color: #ef5350;
+  --warning-color: #ff9800;
+}
+
+/* 浅色主题 */
+body.theme-light {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f0f3fa;
+  --bg-button: #e0e3eb;
+  --bg-button-hover: #d1d4dc;
+  --bg-button-active: #b2b5be;
+  --text-primary: #131722;
+  --text-secondary: #5d606b;
+  --text-muted: #787b86;
+  --border-color: #e0e3eb;
+  --accent-color: #2962ff;
+  --accent-hover: #1e53e4;
+  --success-color: #26a69a;
+  --error-color: #ef5350;
+  --warning-color: #ff9800;
+}
+
+/* ============================================================================
+   基础样式
+   ============================================================================ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 280px;
+  min-height: 200px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif;
+  font-size: 13px;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.container {
+  padding: 16px;
+}
+
+/* ============================================================================
+   标题区域
+   ============================================================================ */
+
+.header {
+  text-align: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* ============================================================================
+   周期按钮
+   ============================================================================ */
+
+.interval-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.interval-btn {
+  flex: 1;
+  padding: 10px 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background-color: var(--bg-button);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.interval-btn:hover:not(:disabled) {
+  background-color: var(--bg-button-hover);
+  border-color: var(--accent-color);
+}
+
+.interval-btn:active:not(:disabled) {
+  background-color: var(--bg-button-active);
+  transform: translateY(1px);
+}
+
+.interval-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.interval-btn.active {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  color: #ffffff;
+}
+
+.interval-btn.loading {
+  position: relative;
+  color: transparent;
+}
+
+.interval-btn.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border: 2px solid var(--text-secondary);
+  border-top-color: var(--accent-color);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================================================
+   状态区域
+   ============================================================================ */
+
+.status-area {
+  background-color: var(--bg-secondary);
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--text-muted);
+  transition: background-color 0.2s ease;
+}
+
+.status-dot.idle {
+  background-color: var(--text-muted);
+}
+
+.status-dot.working {
+  background-color: var(--warning-color);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.status-dot.success {
+  background-color: var(--success-color);
+}
+
+.status-dot.error {
+  background-color: var(--error-color);
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.status-text {
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.symbol-info {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.symbol-info:empty {
+  display: none;
+}
+
+/* ============================================================================
+   错误消息
+   ============================================================================ */
+
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background-color: rgba(239, 83, 80, 0.1);
+  border: 1px solid var(--error-color);
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
+.error-icon {
+  font-size: 14px;
+}
+
+.error-text {
+  font-size: 12px;
+  color: var(--error-color);
+}
+
+/* ============================================================================
+   提示信息
+   ============================================================================ */
+
+.hint {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ============================================================================
+   加载状态覆盖
+   ============================================================================ */
+
+body.loading .interval-btn {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+body.loading .interval-btn:not(.loading) {
+  opacity: 0.5;
+}

@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "TV SnapMaster",
+  "version": "1.0.0",
+  "description": "快速截取 TradingView 图表截图，一键切换任意时间周期",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png"
+    },
+    "default_title": "TV SnapMaster - 图表截图"
+  },
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://www.tradingview.com/chart/*",
+        "*://*.tradingview.com/chart/*"
+      ],
+      "js": [
+        "shared/constants.js",
+        "content/tradingview.js",
+        "content/content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": [
+    "activeTab",
+    "downloads"
+  ],
+  "host_permissions": [
+    "*://www.tradingview.com/*",
+    "*://*.tradingview.com/*"
+  ]
+}

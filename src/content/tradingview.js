@@ -1,0 +1,545 @@
+/**
+ * TV SnapMaster - TradingView DOM 工具
+ * TradingView 专用选择器与工具函数
+ */
+
+// ============================================================================
+// 品种名称提取
+// ============================================================================
+
+/**
+ * 使用备选策略从 TradingView 页面提取品种
+ * @returns {string} 品种名称（如 "BTCUSDT"、"AAPL"）
+ */
+function extractSymbol() {
+  // 策略 1: 通过 data-name 属性查找品种显示元素
+  const symbolByData = document.querySelector('[data-name="legend-source-title"]');
+  if (symbolByData && symbolByData.textContent.trim()) {
+    console.log('[TV SnapMaster] 品种提取策略 1: data-name');
+    return cleanSymbolName(symbolByData.textContent.trim());
+  }
+
+  // 策略 2: 通过 aria-label 属性查找
+  const symbolByAria = document.querySelector('[aria-label*="symbol"]');
+  if (symbolByAria && symbolByAria.textContent.trim()) {
+    console.log('[TV SnapMaster] 品种提取策略 2: aria-label');
+    return cleanSymbolName(symbolByAria.textContent.trim());
+  }
+
+  // 策略 3: 查找图表标题区域
+  const titleElements = document.querySelectorAll('[class*="title"], [class*="symbol"], [class*="legend"]');
+  for (const el of titleElements) {
+    const text = el.textContent.trim();
+    // 品种通常是大写字母和数字的组合
+    const match = text.match(/^([A-Z0-9]{2,}(?:USDT?|USD|BTC|ETH)?)/);
+    if (match) {
+      console.log('[TV SnapMaster] 品种提取策略 3: 类名匹配');
+      return cleanSymbolName(match[1]);
+    }
+  }
+
+  // 策略 4: 解析 URL 中的 tvwidgetsymbol 参数
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlSymbol = urlParams.get('tvwidgetsymbol');
+  if (urlSymbol) {
+    console.log('[TV SnapMaster] 品种提取策略 4: URL 参数');
+    return urlSymbol.split(':').pop();
+  }
+
+  // 策略 5: 从页面标题提取
+  const titleMatch = document.title.match(/^([A-Z0-9]+)/);
+  if (titleMatch) {
+    console.log('[TV SnapMaster] 品种提取策略 5: 页面标题');
+    return titleMatch[1];
+  }
+
+  // 策略 6: 检查图表容器的 data 属性
+  const chartContainer = document.querySelector('[data-symbol]');
+  if (chartContainer) {
+    console.log('[TV SnapMaster] 品种提取策略 6: data-symbol');
+    return chartContainer.getAttribute('data-symbol');
+  }
+
+  console.warn('[TV SnapMaster] 无法提取品种名称');
+  return 'unknown';
+}
+
+/**
+ * 清理品种名称
+ * @param {string} symbol - 原始品种名称
+ * @returns {string} 清理后的名称
+ */
+function cleanSymbolName(symbol) {
+  // 移除交易所前缀（如 "NASDAQ:AAPL" -> "AAPL"）
+  symbol = symbol.split(':').pop();
+  // 替换特殊字符以确保文件名安全
+  return symbol.replace(/[^A-Z0-9]/gi, '_').toUpperCase();
+}
+
+// ============================================================================
+// 周期检测与切换
+// ============================================================================
+
+/**
+ * 检测当前选中的周期
+ * @returns {string|null} 当前周期（如 "4h"、"1D"）
+ */
+function getCurrentInterval() {
+  // 通过 data-active 或 aria-pressed 查找活动状态的按钮
+  const activeSelectors = [
+    '[data-active="true"][data-name*="interval"]',
+    'button[aria-pressed="true"][class*="interval"]',
+    'button[class*="active"][class*="interval"]',
+    '[data-name="time-interval-menu"] [class*="active"]'
+  ];
+
+  for (const selector of activeSelectors) {
+    try {
+      const activeButton = document.querySelector(selector);
+      if (activeButton) {
+        const text = activeButton.textContent.trim();
+        const normalized = normalizeIntervalText(text);
+        if (normalized) {
+          return normalized;
+        }
+      }
+    } catch (e) {
+      // 继续尝试下一个选择器
+    }
+  }
+
+  // 尝试从 URL 中提取周期信息
+  const urlMatch = window.location.href.match(/interval=(\w+)/);
+  if (urlMatch) {
+    return normalizeIntervalText(urlMatch[1]);
+  }
+
+  return null;
+}
+
+/**
+ * 标准化周期文本
+ * @param {string} text - 周期文本
+ * @returns {string|null} 标准化后的周期
+ */
+function normalizeIntervalText(text) {
+  if (!text) return null;
+
+  const normalized = text.trim().toLowerCase();
+  const map = {
+    '15': '15m', '15m': '15m', '15分': '15m', '15分钟': '15m',
+    '60': '1h', '1h': '1h', '1小时': '1h',
+    '240': '4h', '4h': '4h', '4小时': '4h',
+    'd': '1D', '1d': '1D', '日': '1D', '1日': '1D',
+    'w': '1W', '1w': '1W', '周': '1W', '1周': '1W'
+  };
+
+  return map[normalized] || null;
+}
+
+/**
+ * 切换 TradingView 图表到目标周期
+ * @param {string} interval - 目标周期（如 "15m"、"1h"、"4h"、"1D"、"1W"）
+ * @returns {Promise<boolean>} 是否成功
+ */
+async function switchInterval(interval) {
+  console.log('[TV SnapMaster] 切换周期到:', interval);
+
+  // 检查是否已经是目标周期
+  const currentInterval = getCurrentInterval();
+  if (currentInterval === interval) {
+    console.log('[TV SnapMaster] 当前已是目标周期，跳过切换');
+    return true;
+  }
+
+  // 策略 1: 通过 data-name 或 data-value 属性点击周期按钮
+  const buttonByData = document.querySelector(`[data-name="${interval}"], [data-value="${interval}"]`);
+  if (buttonByData) {
+    console.log('[TV SnapMaster] 周期切换策略 1: data 属性');
+    buttonByData.click();
+    return true;
+  }
+
+  // 策略 2: 通过 aria-label 查找
+  const buttonByAria = document.querySelector(`[aria-label*="${interval}"], [aria-label*="${interval.toUpperCase()}"]`);
+  if (buttonByAria) {
+    console.log('[TV SnapMaster] 周期切换策略 2: aria-label');
+    buttonByAria.click();
+    return true;
+  }
+
+  // 策略 3: 通过文本内容筛选按钮
+  const allButtons = document.querySelectorAll('button');
+  for (const button of allButtons) {
+    const text = button.textContent.trim();
+    if (text === interval || normalizeIntervalText(text) === interval) {
+      console.log('[TV SnapMaster] 周期切换策略 3: 文本内容');
+      button.click();
+      return true;
+    }
+  }
+
+  // 策略 4: 检查下拉菜单
+  const dropdownTrigger = document.querySelector('[data-name="time-interval-menu"], [aria-label*="时间周期"], [aria-label*="interval"]');
+  if (dropdownTrigger) {
+    console.log('[TV SnapMaster] 周期切换策略 4: 下拉菜单');
+    dropdownTrigger.click();
+    await tvSleep(200); // 等待下拉动画
+
+    const dropdownButtons = document.querySelectorAll('[role="menu"] button, [role="listbox"] [role="option"], [class*="menu"] button');
+    for (const button of dropdownButtons) {
+      const text = button.textContent.trim();
+      if (text === interval || normalizeIntervalText(text) === interval) {
+        button.click();
+        return true;
+      }
+    }
+  }
+
+  // 策略 5: 键盘输入（通用备选方案）
+  console.log('[TV SnapMaster] 周期切换策略 5: 键盘输入');
+  return await switchIntervalByKeyboard(interval);
+}
+
+/**
+ * 通过键盘输入切换周期
+ * @param {string} interval - 目标周期
+ * @returns {Promise<boolean>} 是否成功
+ */
+async function switchIntervalByKeyboard(interval) {
+  // 聚焦图表区域（点击 canvas）
+  const canvas = document.querySelector('canvas');
+  if (canvas) {
+    canvas.click();
+    await tvSleep(100);
+  }
+
+  // 转换为 TradingView 键盘输入格式
+  const keyboardMap = {
+    '15m': '15',
+    '1h': '60',
+    '4h': '240',
+    '1D': '1D',
+    '1W': '1W'
+  };
+
+  const inputText = keyboardMap[interval] || interval;
+
+  // 模拟键盘输入
+  for (const char of inputText) {
+    const eventInit = {
+      key: char,
+      code: `Key${char.toUpperCase()}`,
+      bubbles: true,
+      cancelable: true
+    };
+    document.dispatchEvent(new KeyboardEvent('keydown', eventInit));
+    document.dispatchEvent(new KeyboardEvent('keypress', eventInit));
+    document.dispatchEvent(new KeyboardEvent('keyup', eventInit));
+    await tvSleep(50);
+  }
+
+  // 按回车确认
+  await tvSleep(100);
+  const enterEvent = { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true };
+  document.dispatchEvent(new KeyboardEvent('keydown', enterEvent));
+  document.dispatchEvent(new KeyboardEvent('keypress', enterEvent));
+  document.dispatchEvent(new KeyboardEvent('keyup', enterEvent));
+
+  return true;
+}
+
+// ============================================================================
+// 加载检测
+// ============================================================================
+
+/**
+ * 等待 TradingView 图表加载完成
+ * @param {number} timeout - 最大等待时间（毫秒，默认 10000）
+ * @returns {Promise<boolean>} 是否加载完成
+ */
+async function waitForChartLoad(timeout = 10000) {
+  const startTime = Date.now();
+  console.log('[TV SnapMaster] 开始等待图表加载...');
+
+  // 策略 1: 等待加载指示器消失
+  await waitForLoadingIndicatorRemoved(5000);
+
+  // 策略 2: 等待 Canvas 稳定
+  const canvas = document.querySelector('canvas.chart-markup-table, canvas[class*="chart"], canvas');
+  if (canvas) {
+    await waitForCanvasStable(canvas, 1000);
+  }
+
+  // 策略 3: 额外安全缓冲
+  await tvSleep(500);
+
+  const elapsed = Date.now() - startTime;
+  console.log(`[TV SnapMaster] 图表加载完成，耗时 ${elapsed}ms`);
+
+  return elapsed < timeout;
+}
+
+/**
+ * 等待加载指示器从 DOM 中移除
+ * @param {number} timeout - 超时时间（毫秒）
+ * @returns {Promise<boolean>}
+ */
+function waitForLoadingIndicatorRemoved(timeout) {
+  return new Promise((resolve) => {
+    const indicators = [
+      '.tv-spinner',
+      '[class*="spinner"]',
+      '[class*="loading"]',
+      '[class*="loader"]',
+      '[data-loading="true"]'
+    ];
+
+    const checkIndicator = () => {
+      for (const selector of indicators) {
+        const element = document.querySelector(selector);
+        if (element && isElementVisible(element)) {
+          return true; // 仍有加载指示器
+        }
+      }
+      return false; // 没有加载指示器
+    };
+
+    // 如果当前没有加载指示器，直接返回
+    if (!checkIndicator()) {
+      resolve(true);
+      return;
+    }
+
+    // 使用 MutationObserver 监控
+    const observer = new MutationObserver(() => {
+      if (!checkIndicator()) {
+        observer.disconnect();
+        resolve(true);
+      }
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'style']
+    });
+
+    // 超时处理
+    setTimeout(() => {
+      observer.disconnect();
+      resolve(false);
+    }, timeout);
+  });
+}
+
+/**
+ * 等待 Canvas 元素停止变化
+ * @param {HTMLCanvasElement} canvas - Canvas 元素
+ * @param {number} stableTime - 稳定时间（毫秒）
+ * @returns {Promise<boolean>}
+ */
+function waitForCanvasStable(canvas, stableTime = 1000) {
+  return new Promise((resolve) => {
+    let lastChange = Date.now();
+
+    const observer = new MutationObserver(() => {
+      lastChange = Date.now();
+    });
+
+    observer.observe(canvas, {
+      attributes: true,
+      attributeFilter: ['width', 'height', 'style']
+    });
+
+    const checkStable = setInterval(() => {
+      const timeSinceChange = Date.now() - lastChange;
+
+      if (timeSinceChange >= stableTime) {
+        clearInterval(checkStable);
+        observer.disconnect();
+        resolve(true);
+      }
+    }, 100);
+
+    // 安全超时
+    setTimeout(() => {
+      clearInterval(checkStable);
+      observer.disconnect();
+      resolve(true); // 超时也认为加载完成
+    }, 10000);
+  });
+}
+
+// ============================================================================
+// 弹窗对话框处理
+// ============================================================================
+
+/**
+ * 初始化弹窗对话框关闭观察器
+ */
+function initializePopupDismissal() {
+  const dialogSelectors = [
+    '[data-dialog-name]',
+    '[role="dialog"]',
+    '[class*="dialog"]',
+    '[class*="modal"]',
+    '[class*="popup"]',
+    '[class*="overlay"]',
+    '.tv-dialog',
+    '.tv-toast',
+    '#tv-toasts'
+  ];
+
+  const dismissButtonPatterns = [
+    'ok', '确定', '好的', 'close', '关闭', 'dismiss', 'cancel', '取消',
+    'got it', '知道了', 'accept', '接受', 'agree', '同意',
+    'continue', '继续', 'skip', '跳过', 'not now', '稍后',
+    'x', '×', '\u00d7'
+  ];
+
+  // 观察 DOM 中对话框的出现
+  const observer = new MutationObserver(() => {
+    for (const selector of dialogSelectors) {
+      const dialog = document.querySelector(selector);
+      if (dialog && isElementVisible(dialog)) {
+        dismissDialog(dialog, dismissButtonPatterns);
+      }
+    }
+  });
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+
+  // 页面加载时的初始检查
+  setTimeout(() => {
+    for (const selector of dialogSelectors) {
+      const dialog = document.querySelector(selector);
+      if (dialog && isElementVisible(dialog)) {
+        dismissDialog(dialog, dismissButtonPatterns);
+      }
+    }
+  }, 1000);
+
+  console.log('[TV SnapMaster] 弹窗关闭观察器已初始化');
+}
+
+/**
+ * 尝试关闭对话框
+ * @param {Element} dialog - 对话框元素
+ * @param {string[]} buttonPatterns - 关闭按钮文本模式
+ * @returns {boolean} 是否成功关闭
+ */
+function dismissDialog(dialog, buttonPatterns) {
+  const buttons = dialog.querySelectorAll('button, [role="button"], a.close, .close-button, [class*="close"]');
+
+  for (const button of buttons) {
+    const text = (button.textContent || '').trim().toLowerCase();
+    const ariaLabel = (button.getAttribute('aria-label') || '').toLowerCase();
+    const title = (button.getAttribute('title') || '').toLowerCase();
+
+    for (const pattern of buttonPatterns) {
+      if (text.includes(pattern) || ariaLabel.includes(pattern) || title.includes(pattern)) {
+        console.log('[TV SnapMaster] 自动关闭对话框:', pattern);
+        button.click();
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+// ============================================================================
+// 主题检测
+// ============================================================================
+
+/**
+ * 检测 TradingView 当前主题
+ * @returns {string} 'dark' 或 'light'
+ */
+function detectTheme() {
+  const html = document.documentElement;
+  const body = document.body;
+
+  // 策略 1: 检查 html/body 上的主题类
+  const classPatterns = [
+    { element: html, pattern: /theme-(dark|light)/i },
+    { element: body, pattern: /theme-(dark|light)/i },
+    { element: html, pattern: /(dark|light)-theme/i },
+    { element: body, pattern: /(dark|light)-theme/i },
+    { element: html, pattern: /tv-theme-(dark|light)/i },
+    { element: body, pattern: /tv-theme-(dark|light)/i }
+  ];
+
+  for (const { element, pattern } of classPatterns) {
+    const classList = Array.from(element.classList);
+    for (const className of classList) {
+      const match = className.match(pattern);
+      if (match) {
+        console.log('[TV SnapMaster] 主题检测策略 1: CSS 类');
+        return match[1].toLowerCase();
+      }
+    }
+  }
+
+  // 策略 2: 检查 data-theme 属性
+  const dataTheme = html.getAttribute('data-theme') || body.getAttribute('data-theme');
+  if (dataTheme && (dataTheme === 'dark' || dataTheme === 'light')) {
+    console.log('[TV SnapMaster] 主题检测策略 2: data-theme');
+    return dataTheme;
+  }
+
+  // 策略 3: 分析背景颜色
+  return detectThemeByColor();
+}
+
+/**
+ * 通过分析背景颜色检测主题
+ * @returns {string} 'dark' 或 'light'
+ */
+function detectThemeByColor() {
+  const chartArea = document.querySelector('.chart-container, [class*="chart"]') || document.body;
+  const bgColor = window.getComputedStyle(chartArea).backgroundColor;
+
+  const match = bgColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (match) {
+    const [, r, g, b] = match.map(Number);
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    console.log('[TV SnapMaster] 主题检测策略 3: 背景颜色, 亮度:', brightness);
+    return brightness < 128 ? 'dark' : 'light';
+  }
+
+  // 默认深色
+  return 'dark';
+}
+
+// ============================================================================
+// 工具函数
+// ============================================================================
+
+/**
+ * 延迟执行
+ * @param {number} ms - 延迟毫秒数
+ * @returns {Promise<void>}
+ */
+function tvSleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * 检查元素是否可见
+ * @param {Element} element - DOM 元素
+ * @returns {boolean} 是否可见
+ */
+function isElementVisible(element) {
+  if (!element) return false;
+  const style = window.getComputedStyle(element);
+  return style.display !== 'none' &&
+         style.visibility !== 'hidden' &&
+         style.opacity !== '0' &&
+         element.offsetParent !== null;
+}

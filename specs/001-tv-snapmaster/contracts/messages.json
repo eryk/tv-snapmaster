@@ -1,0 +1,170 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TV SnapMaster 消息契约",
+  "description": "Chrome 插件消息传递的 JSON Schema 定义",
+  "version": "1.0.0",
+  "definitions": {
+    "Interval": {
+      "type": "string",
+      "enum": ["15m", "1h", "4h", "1D", "1W"],
+      "description": "支持的图表时间周期"
+    },
+    "Theme": {
+      "type": "string",
+      "enum": ["dark", "light"],
+      "description": "TradingView 主题"
+    },
+    "CaptureStatus": {
+      "type": "string",
+      "enum": ["idle", "switching", "loading", "capturing", "downloading", "complete", "error"],
+      "description": "截图工作流程的当前状态"
+    },
+    "ErrorCode": {
+      "type": "string",
+      "enum": [
+        "NOT_TRADINGVIEW",
+        "INTERVAL_SWITCH_FAILED",
+        "LOAD_TIMEOUT",
+        "CAPTURE_FAILED",
+        "DOWNLOAD_FAILED",
+        "SYMBOL_NOT_FOUND",
+        "UNKNOWN"
+      ],
+      "description": "截图失败的错误代码"
+    },
+    "CaptureError": {
+      "type": "object",
+      "properties": {
+        "code": { "$ref": "#/definitions/ErrorCode" },
+        "message": { "type": "string", "description": "人类可读的错误消息" },
+        "details": { "type": "string", "description": "额外上下文信息" }
+      },
+      "required": ["code", "message"]
+    },
+    "CaptureRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "唯一请求标识符"
+        },
+        "interval": { "$ref": "#/definitions/Interval" },
+        "timestamp": {
+          "type": "number",
+          "description": "Unix 毫秒时间戳"
+        }
+      },
+      "required": ["id", "interval", "timestamp"]
+    },
+    "CaptureState": {
+      "type": "object",
+      "properties": {
+        "status": { "$ref": "#/definitions/CaptureStatus" },
+        "request": {
+          "oneOf": [
+            { "$ref": "#/definitions/CaptureRequest" },
+            { "type": "null" }
+          ]
+        },
+        "message": { "type": "string", "description": "UI 显示的进度消息" },
+        "error": {
+          "oneOf": [
+            { "$ref": "#/definitions/CaptureError" },
+            { "type": "null" }
+          ]
+        },
+        "symbol": { "type": ["string", "null"], "description": "当前品种" },
+        "currentInterval": {
+          "oneOf": [
+            { "$ref": "#/definitions/Interval" },
+            { "type": "null" }
+          ],
+          "description": "页面上检测到的当前周期"
+        }
+      },
+      "required": ["status", "message"]
+    },
+    "PageInfo": {
+      "type": "object",
+      "properties": {
+        "symbol": { "type": "string", "description": "图表上显示的当前品种" },
+        "interval": {
+          "oneOf": [
+            { "$ref": "#/definitions/Interval" },
+            { "type": "null" }
+          ],
+          "description": "当前时间周期"
+        },
+        "theme": { "$ref": "#/definitions/Theme", "description": "当前主题" },
+        "isLoading": { "type": "boolean", "description": "图表是否正在加载" },
+        "url": { "type": "string", "format": "uri", "description": "页面 URL" }
+      },
+      "required": ["symbol", "theme", "isLoading", "url"]
+    }
+  },
+  "messages": {
+    "PopupToContentScript": {
+      "CAPTURE": {
+        "description": "请求在指定周期截图",
+        "payload": { "$ref": "#/definitions/CaptureRequest" }
+      },
+      "GET_PAGE_INFO": {
+        "description": "请求当前页面信息",
+        "payload": null
+      },
+      "GET_THEME": {
+        "description": "请求当前主题",
+        "payload": null
+      }
+    },
+    "ContentScriptToPopup": {
+      "STATUS_UPDATE": {
+        "description": "截图过程中的状态更新",
+        "payload": { "$ref": "#/definitions/CaptureState" }
+      },
+      "PAGE_INFO": {
+        "description": "页面信息响应",
+        "payload": { "$ref": "#/definitions/PageInfo" }
+      },
+      "THEME": {
+        "description": "主题响应",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "theme": { "$ref": "#/definitions/Theme" }
+          },
+          "required": ["theme"]
+        }
+      }
+    },
+    "ContentScriptToServiceWorker": {
+      "CAPTURE_TAB": {
+        "description": "请求截取可见标签页",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "symbol": { "type": "string", "description": "品种名称" },
+            "interval": { "$ref": "#/definitions/Interval", "description": "时间周期" },
+            "timestamp": { "type": "number", "description": "截图时间戳" }
+          },
+          "required": ["symbol", "interval", "timestamp"]
+        }
+      }
+    },
+    "ServiceWorkerToContentScript": {
+      "CAPTURE_COMPLETE": {
+        "description": "截图完成通知",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean", "description": "是否成功" },
+            "filename": { "type": "string", "description": "生成的文件名" },
+            "error": { "$ref": "#/definitions/CaptureError", "description": "错误详情" }
+          },
+          "required": ["success"]
+        }
+      }
+    }
+  }
+}

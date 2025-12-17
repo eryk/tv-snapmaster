@@ -1,0 +1,172 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TV SnapMaster Chrome 插件 Manifest",
+  "description": "TV SnapMaster 的 Chrome Extension Manifest V3 架构",
+  "type": "object",
+  "properties": {
+    "manifest_version": {
+      "const": 3,
+      "description": "Manifest V3 插件必须为 3"
+    },
+    "name": {
+      "const": "TV SnapMaster",
+      "description": "插件显示名称"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "语义化版本号（如 1.0.0）"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 132,
+      "description": "插件描述（Chrome 应用商店最多 132 字符）"
+    },
+    "icons": {
+      "type": "object",
+      "properties": {
+        "16": { "type": "string", "description": "16x16 图标路径" },
+        "48": { "type": "string", "description": "48x48 图标路径" },
+        "128": { "type": "string", "description": "128x128 图标路径" }
+      },
+      "required": ["16", "48", "128"],
+      "description": "不同尺寸的插件图标"
+    },
+    "action": {
+      "type": "object",
+      "properties": {
+        "default_popup": {
+          "const": "popup/popup.html",
+          "description": "弹窗 HTML 文件路径"
+        },
+        "default_icon": {
+          "type": "object",
+          "properties": {
+            "16": { "type": "string" },
+            "48": { "type": "string" }
+          },
+          "description": "工具栏图标"
+        },
+        "default_title": {
+          "type": "string",
+          "description": "鼠标悬停时的提示文本"
+        }
+      },
+      "required": ["default_popup"]
+    },
+    "background": {
+      "type": "object",
+      "properties": {
+        "service_worker": {
+          "const": "background/service-worker.js",
+          "description": "Service Worker 脚本路径"
+        },
+        "type": {
+          "const": "module",
+          "description": "在 Service Worker 中启用 ES 模块"
+        }
+      },
+      "required": ["service_worker"]
+    },
+    "content_scripts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "matches": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "要匹配的 URL 模式"
+          },
+          "js": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "要注入的 JavaScript 文件"
+          },
+          "css": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "要注入的 CSS 文件（可选）"
+          },
+          "run_at": {
+            "type": "string",
+            "enum": ["document_start", "document_end", "document_idle"],
+            "description": "脚本注入时机"
+          }
+        },
+        "required": ["matches", "js"]
+      },
+      "minItems": 1,
+      "description": "内容脚本配置"
+    },
+    "permissions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["activeTab", "downloads", "storage", "scripting"]
+      },
+      "description": "所需的 Chrome API 权限"
+    },
+    "host_permissions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "内容脚本注入的主机权限"
+    }
+  },
+  "required": [
+    "manifest_version",
+    "name",
+    "version",
+    "description",
+    "icons",
+    "action",
+    "background",
+    "content_scripts",
+    "permissions"
+  ],
+  "example": {
+    "manifest_version": 3,
+    "name": "TV SnapMaster",
+    "version": "1.0.0",
+    "description": "快速截取 TradingView 图表截图，一键切换任意时间周期",
+    "icons": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "action": {
+      "default_popup": "popup/popup.html",
+      "default_icon": {
+        "16": "icons/icon16.png",
+        "48": "icons/icon48.png"
+      },
+      "default_title": "TV SnapMaster - 图表截图"
+    },
+    "background": {
+      "service_worker": "background/service-worker.js",
+      "type": "module"
+    },
+    "content_scripts": [
+      {
+        "matches": [
+          "*://www.tradingview.com/chart/*",
+          "*://*.tradingview.com/chart/*"
+        ],
+        "js": [
+          "shared/constants.js",
+          "content/tradingview.js",
+          "content/content.js"
+        ],
+        "run_at": "document_idle"
+      }
+    ],
+    "permissions": [
+      "activeTab",
+      "downloads"
+    ],
+    "host_permissions": [
+      "*://www.tradingview.com/*",
+      "*://*.tradingview.com/*"
+    ]
+  }
+}
