@@ -12,55 +12,90 @@
  * @returns {string} 品种名称（如 "BTCUSDT"、"AAPL"）
  */
 function extractSymbol() {
-  // 策略 1: 通过 data-name 属性查找品种显示元素
+  console.log('[TV SnapMaster] 开始提取品种名称...');
+
+  // 策略 1: 通过 data-name="legend-source-title" 查找
   const symbolByData = document.querySelector('[data-name="legend-source-title"]');
-  if (symbolByData && symbolByData.textContent.trim()) {
-    console.log('[TV SnapMaster] 品种提取策略 1: data-name');
-    return cleanSymbolName(symbolByData.textContent.trim());
-  }
-
-  // 策略 2: 通过 aria-label 属性查找
-  const symbolByAria = document.querySelector('[aria-label*="symbol"]');
-  if (symbolByAria && symbolByAria.textContent.trim()) {
-    console.log('[TV SnapMaster] 品种提取策略 2: aria-label');
-    return cleanSymbolName(symbolByAria.textContent.trim());
-  }
-
-  // 策略 3: 查找图表标题区域
-  const titleElements = document.querySelectorAll('[class*="title"], [class*="symbol"], [class*="legend"]');
-  for (const el of titleElements) {
-    const text = el.textContent.trim();
-    // 品种通常是大写字母和数字的组合
-    const match = text.match(/^([A-Z0-9]{2,}(?:USDT?|USD|BTC|ETH)?)/);
-    if (match) {
-      console.log('[TV SnapMaster] 品种提取策略 3: 类名匹配');
-      return cleanSymbolName(match[1]);
+  if (symbolByData) {
+    const text = symbolByData.textContent.trim();
+    console.log('[TV SnapMaster] 策略 1 (data-name): 原始文本 =', text);
+    if (text) {
+      const cleaned = cleanSymbolName(text);
+      console.log('[TV SnapMaster] 策略 1: 清理后 =', cleaned);
+      if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2) {
+        return cleaned;
+      }
     }
   }
 
-  // 策略 4: 解析 URL 中的 tvwidgetsymbol 参数
+  // 策略 2: 查找图表标题栏的品种文本
+  const legendTitles = document.querySelectorAll('[class*="legend"] [class*="title"], [class*="chart-widget"] [class*="title"]');
+  for (const el of legendTitles) {
+    const text = el.textContent.trim();
+    console.log('[TV SnapMaster] 策略 2 (legend title): 检查文本 =', text);
+    // 匹配常见品种格式：BTCUSDT, AAPL, ES1!, BTC/USD 等
+    const match = text.match(/^([A-Z][A-Z0-9]{1,}(?:USDT?|USD|EUR|GBP|JPY|BTC|ETH)?)/i);
+    if (match && match[1].length >= 2) {
+      const cleaned = cleanSymbolName(match[1]);
+      console.log('[TV SnapMaster] 策略 2: 匹配成功 =', cleaned);
+      if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2) {
+        return cleaned;
+      }
+    }
+  }
+
+  // 策略 3: 查找包含品种信息的 div 元素
+  const symbolElements = document.querySelectorAll('[class*="symbol"]');
+  for (const el of symbolElements) {
+    const text = el.textContent.trim();
+    if (text.length >= 2 && text.length <= 20) {
+      console.log('[TV SnapMaster] 策略 3 (symbol class): 检查文本 =', text);
+      const match = text.match(/^([A-Z][A-Z0-9]{1,})/i);
+      if (match && match[1].length >= 2) {
+        const cleaned = cleanSymbolName(match[1]);
+        if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2) {
+          console.log('[TV SnapMaster] 策略 3: 匹配成功 =', cleaned);
+          return cleaned;
+        }
+      }
+    }
+  }
+
+  // 策略 4: 从 URL 提取品种
+  const urlMatch = window.location.pathname.match(/\/chart\/([^\/]+)/);
+  if (urlMatch && urlMatch[1]) {
+    console.log('[TV SnapMaster] 策略 4 (URL path): 原始 =', urlMatch[1]);
+    const cleaned = cleanSymbolName(urlMatch[1]);
+    if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2) {
+      console.log('[TV SnapMaster] 策略 4: 提取成功 =', cleaned);
+      return cleaned;
+    }
+  }
+
+  // 策略 5: 从 URL 查询参数提取
   const urlParams = new URLSearchParams(window.location.search);
-  const urlSymbol = urlParams.get('tvwidgetsymbol');
+  const urlSymbol = urlParams.get('symbol') || urlParams.get('tvwidgetsymbol');
   if (urlSymbol) {
-    console.log('[TV SnapMaster] 品种提取策略 4: URL 参数');
-    return urlSymbol.split(':').pop();
+    console.log('[TV SnapMaster] 策略 5 (URL params): 原始 =', urlSymbol);
+    const cleaned = cleanSymbolName(urlSymbol.split(':').pop());
+    if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2) {
+      console.log('[TV SnapMaster] 策略 5: 提取成功 =', cleaned);
+      return cleaned;
+    }
   }
 
-  // 策略 5: 从页面标题提取
-  const titleMatch = document.title.match(/^([A-Z0-9]+)/);
-  if (titleMatch) {
-    console.log('[TV SnapMaster] 品种提取策略 5: 页面标题');
-    return titleMatch[1];
+  // 策略 6: 从页面标题提取
+  const titleMatch = document.title.match(/^([A-Z][A-Z0-9]{1,})/i);
+  if (titleMatch && titleMatch[1]) {
+    console.log('[TV SnapMaster] 策略 6 (page title): 原始 =', titleMatch[1]);
+    const cleaned = cleanSymbolName(titleMatch[1]);
+    if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2) {
+      console.log('[TV SnapMaster] 策略 6: 提取成功 =', cleaned);
+      return cleaned;
+    }
   }
 
-  // 策略 6: 检查图表容器的 data 属性
-  const chartContainer = document.querySelector('[data-symbol]');
-  if (chartContainer) {
-    console.log('[TV SnapMaster] 品种提取策略 6: data-symbol');
-    return chartContainer.getAttribute('data-symbol');
-  }
-
-  console.warn('[TV SnapMaster] 无法提取品种名称');
+  console.warn('[TV SnapMaster] 所有策略均未能提取品种名称');
   return 'unknown';
 }
 
@@ -70,10 +105,36 @@ function extractSymbol() {
  * @returns {string} 清理后的名称
  */
 function cleanSymbolName(symbol) {
-  // 移除交易所前缀（如 "NASDAQ:AAPL" -> "AAPL"）
-  symbol = symbol.split(':').pop();
-  // 替换特殊字符以确保文件名安全
-  return symbol.replace(/[^A-Z0-9]/gi, '_').toUpperCase();
+  if (!symbol || typeof symbol !== 'string') {
+    console.warn('[TV SnapMaster] cleanSymbolName: 输入无效', symbol);
+    return 'UNKNOWN';
+  }
+
+  // 移除交易所前缀（如 "NASDAQ:AAPL" -> "AAPL", "BINANCE:BTCUSDT" -> "BTCUSDT"）
+  let cleaned = symbol.split(':').pop().trim();
+
+  // 移除常见后缀（如价格、时间等信息）
+  // 匹配第一个单词或符号名称部分
+  const symbolMatch = cleaned.match(/^([A-Z0-9][A-Z0-9\/\-\.]*[A-Z0-9])/i);
+  if (symbolMatch) {
+    cleaned = symbolMatch[1];
+  }
+
+  // 替换斜杠、点、横线为下划线
+  cleaned = cleaned.replace(/[\/\.\-]/g, '_');
+
+  // 移除其他特殊字符
+  cleaned = cleaned.replace(/[^A-Z0-9_]/gi, '');
+
+  // 移除首尾下划线
+  cleaned = cleaned.replace(/^_+|_+$/g, '');
+
+  // 转换为大写
+  cleaned = cleaned.toUpperCase();
+
+  console.log('[TV SnapMaster] cleanSymbolName: 输入 =', symbol, ', 输出 =', cleaned);
+
+  return cleaned || 'UNKNOWN';
 }
 
 // ============================================================================
