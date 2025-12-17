@@ -13,89 +13,130 @@
  */
 function extractSymbol() {
   console.log('[TV SnapMaster] 开始提取品种名称...');
+  console.log('[TV SnapMaster] 当前 URL:', window.location.href);
+  console.log('[TV SnapMaster] 页面标题:', document.title);
 
-  // 策略 1: 通过 data-name="legend-source-title" 查找
+  // 策略 1: 从 URL 路径提取（最可靠）
+  const urlMatch = window.location.pathname.match(/\/chart\/([^\/]+)/);
+  if (urlMatch && urlMatch[1]) {
+    const rawSymbol = decodeURIComponent(urlMatch[1]);
+    console.log('[TV SnapMaster] 策略 1 (URL path): 原始 =', rawSymbol);
+    const cleaned = cleanSymbolName(rawSymbol);
+    if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2 && cleaned.length <= 20) {
+      console.log('[TV SnapMaster] 策略 1: 提取成功 =', cleaned);
+      return cleaned;
+    }
+  }
+
+  // 策略 2: 从 URL hash 提取
+  const hashMatch = window.location.hash.match(/symbol=([^&]+)/);
+  if (hashMatch && hashMatch[1]) {
+    const rawSymbol = decodeURIComponent(hashMatch[1]);
+    console.log('[TV SnapMaster] 策略 2 (URL hash): 原始 =', rawSymbol);
+    const cleaned = cleanSymbolName(rawSymbol);
+    if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2 && cleaned.length <= 20) {
+      console.log('[TV SnapMaster] 策略 2: 提取成功 =', cleaned);
+      return cleaned;
+    }
+  }
+
+  // 策略 3: 从 URL 查询参数提取
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlSymbol = urlParams.get('symbol') || urlParams.get('tvwidgetsymbol');
+  if (urlSymbol) {
+    console.log('[TV SnapMaster] 策略 3 (URL params): 原始 =', urlSymbol);
+    const cleaned = cleanSymbolName(urlSymbol);
+    if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2 && cleaned.length <= 20) {
+      console.log('[TV SnapMaster] 策略 3: 提取成功 =', cleaned);
+      return cleaned;
+    }
+  }
+
+  // 策略 4: 从页面标题提取（通常格式为 "SYMBOL — Chart — TradingView"）
+  const titleMatch = document.title.match(/^([A-Z0-9!\.]+)(?:\s|—)/i);
+  if (titleMatch && titleMatch[1]) {
+    console.log('[TV SnapMaster] 策略 4 (page title): 原始 =', titleMatch[1]);
+    const cleaned = cleanSymbolName(titleMatch[1]);
+    if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2 && cleaned.length <= 20) {
+      console.log('[TV SnapMaster] 策略 4: 提取成功 =', cleaned);
+      return cleaned;
+    }
+  }
+
+  // 策略 5: 通过 data-name="legend-source-title" 查找
   const symbolByData = document.querySelector('[data-name="legend-source-title"]');
   if (symbolByData) {
     const text = symbolByData.textContent.trim();
-    console.log('[TV SnapMaster] 策略 1 (data-name): 原始文本 =', text);
-    if (text) {
-      const cleaned = cleanSymbolName(text);
-      console.log('[TV SnapMaster] 策略 1: 清理后 =', cleaned);
-      if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2) {
+    console.log('[TV SnapMaster] 策略 5 (data-name): 原始文本 =', text);
+    // 尝试提取括号内的代码（如 "Bitcoin (BTC)" -> "BTC"）
+    const bracketMatch = text.match(/\(([A-Z0-9!\.]+)\)/i);
+    if (bracketMatch) {
+      const cleaned = cleanSymbolName(bracketMatch[1]);
+      console.log('[TV SnapMaster] 策略 5a (括号内): 清理后 =', cleaned);
+      if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2 && cleaned.length <= 20) {
+        return cleaned;
+      }
+    }
+
+    // 尝试提取第一个单词（但避免描述性文字）
+    const firstWord = text.split(/[\s,]/)[0];
+    if (firstWord && firstWord.length >= 2 && firstWord.length <= 10) {
+      const cleaned = cleanSymbolName(firstWord);
+      console.log('[TV SnapMaster] 策略 5b (第一个词): 清理后 =', cleaned);
+      if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2 && cleaned.length <= 20) {
         return cleaned;
       }
     }
   }
 
-  // 策略 2: 查找图表标题栏的品种文本
+  // 策略 6: 查找图表标题栏的品种文本（最后尝试）
   const legendTitles = document.querySelectorAll('[class*="legend"] [class*="title"], [class*="chart-widget"] [class*="title"]');
   for (const el of legendTitles) {
     const text = el.textContent.trim();
-    console.log('[TV SnapMaster] 策略 2 (legend title): 检查文本 =', text);
-    // 匹配常见品种格式：BTCUSDT, AAPL, ES1!, BTC/USD 等
-    const match = text.match(/^([A-Z][A-Z0-9]{1,}(?:USDT?|USD|EUR|GBP|JPY|BTC|ETH)?)/i);
-    if (match && match[1].length >= 2) {
+    if (text.length > 50) continue; // 跳过太长的文本（可能是描述）
+
+    console.log('[TV SnapMaster] 策略 6 (legend title): 检查文本 =', text);
+
+    // 尝试匹配期货格式: CL1!, ES1!, MCL1! 等
+    const futuresMatch = text.match(/^([A-Z]{1,4}\d*!?)/i);
+    if (futuresMatch) {
+      const cleaned = cleanSymbolName(futuresMatch[1]);
+      console.log('[TV SnapMaster] 策略 6a (期货): 匹配成功 =', cleaned);
+      if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2 && cleaned.length <= 20) {
+        return cleaned;
+      }
+    }
+
+    // 匹配常见品种格式：BTCUSDT, AAPL, BTC/USD 等
+    const match = text.match(/^([A-Z][A-Z0-9\/\-\.]{1,})/i);
+    if (match && match[1].length >= 2 && match[1].length <= 15) {
       const cleaned = cleanSymbolName(match[1]);
-      console.log('[TV SnapMaster] 策略 2: 匹配成功 =', cleaned);
-      if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2) {
+      console.log('[TV SnapMaster] 策略 6b (通用): 匹配成功 =', cleaned);
+      if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2 && cleaned.length <= 20) {
         return cleaned;
       }
     }
   }
 
-  // 策略 3: 查找包含品种信息的 div 元素
+  // 策略 7: 查找包含品种信息的 div 元素（最后手段）
   const symbolElements = document.querySelectorAll('[class*="symbol"]');
   for (const el of symbolElements) {
     const text = el.textContent.trim();
     if (text.length >= 2 && text.length <= 20) {
-      console.log('[TV SnapMaster] 策略 3 (symbol class): 检查文本 =', text);
-      const match = text.match(/^([A-Z][A-Z0-9]{1,})/i);
+      console.log('[TV SnapMaster] 策略 7 (symbol class): 检查文本 =', text);
+      const match = text.match(/^([A-Z][A-Z0-9!\.]{1,})/i);
       if (match && match[1].length >= 2) {
         const cleaned = cleanSymbolName(match[1]);
-        if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2) {
-          console.log('[TV SnapMaster] 策略 3: 匹配成功 =', cleaned);
+        if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2 && cleaned.length <= 20) {
+          console.log('[TV SnapMaster] 策略 7: 匹配成功 =', cleaned);
           return cleaned;
         }
       }
     }
   }
 
-  // 策略 4: 从 URL 提取品种
-  const urlMatch = window.location.pathname.match(/\/chart\/([^\/]+)/);
-  if (urlMatch && urlMatch[1]) {
-    console.log('[TV SnapMaster] 策略 4 (URL path): 原始 =', urlMatch[1]);
-    const cleaned = cleanSymbolName(urlMatch[1]);
-    if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2) {
-      console.log('[TV SnapMaster] 策略 4: 提取成功 =', cleaned);
-      return cleaned;
-    }
-  }
-
-  // 策略 5: 从 URL 查询参数提取
-  const urlParams = new URLSearchParams(window.location.search);
-  const urlSymbol = urlParams.get('symbol') || urlParams.get('tvwidgetsymbol');
-  if (urlSymbol) {
-    console.log('[TV SnapMaster] 策略 5 (URL params): 原始 =', urlSymbol);
-    const cleaned = cleanSymbolName(urlSymbol.split(':').pop());
-    if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2) {
-      console.log('[TV SnapMaster] 策略 5: 提取成功 =', cleaned);
-      return cleaned;
-    }
-  }
-
-  // 策略 6: 从页面标题提取
-  const titleMatch = document.title.match(/^([A-Z][A-Z0-9]{1,})/i);
-  if (titleMatch && titleMatch[1]) {
-    console.log('[TV SnapMaster] 策略 6 (page title): 原始 =', titleMatch[1]);
-    const cleaned = cleanSymbolName(titleMatch[1]);
-    if (cleaned && cleaned !== 'UNKNOWN' && cleaned.length >= 2) {
-      console.log('[TV SnapMaster] 策略 6: 提取成功 =', cleaned);
-      return cleaned;
-    }
-  }
-
   console.warn('[TV SnapMaster] 所有策略均未能提取品种名称');
+  console.warn('[TV SnapMaster] 返回 unknown');
   return 'unknown';
 }
 
