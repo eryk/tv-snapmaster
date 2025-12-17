@@ -14,7 +14,9 @@ const elements = {
   errorMessage: document.getElementById('errorMessage'),
   errorText: document.getElementById('errorText'),
   hint: document.getElementById('hint'),
-  intervalButtons: document.querySelectorAll('.interval-btn')
+  intervalCheckboxes: document.querySelectorAll('.interval-checkbox'),
+  intervalItems: document.querySelectorAll('.interval-item'),
+  batchCaptureBtn: document.getElementById('batchCaptureBtn')
 };
 
 // ============================================================================
@@ -31,10 +33,13 @@ let currentInterval = null;
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('[TV SnapMaster Popup] 初始化');
 
-  // 绑定按钮事件
-  elements.intervalButtons.forEach(btn => {
-    btn.addEventListener('click', () => handleIntervalClick(btn));
+  // 绑定复选框事件
+  elements.intervalCheckboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', handleCheckboxChange);
   });
+
+  // 绑定批量截图按钮
+  elements.batchCaptureBtn.addEventListener('click', handleBatchCapture);
 
   // 获取页面信息
   await loadPageInfo();
@@ -117,42 +122,75 @@ function applyTheme(theme) {
 }
 
 // ============================================================================
-// 按钮处理
+// 复选框和批量截图处理
 // ============================================================================
 
 /**
- * 处理周期按钮点击
- * @param {HTMLButtonElement} button - 被点击的按钮
+ * 处理复选框变化
  */
-async function handleIntervalClick(button) {
+function handleCheckboxChange() {
+  const selectedIntervals = getSelectedIntervals();
+
+  // 更新批量截图按钮状态
+  elements.batchCaptureBtn.disabled = selectedIntervals.length === 0;
+
+  // 更新按钮文本
+  if (selectedIntervals.length === 0) {
+    elements.batchCaptureBtn.textContent = '批量截图';
+  } else if (selectedIntervals.length === 1) {
+    elements.batchCaptureBtn.textContent = '截图';
+  } else {
+    elements.batchCaptureBtn.textContent = `批量截图 (${selectedIntervals.length})`;
+  }
+}
+
+/**
+ * 获取选中的周期
+ * @returns {string[]} 选中的周期数组
+ */
+function getSelectedIntervals() {
+  return Array.from(elements.intervalCheckboxes)
+    .filter(checkbox => checkbox.checked)
+    .map(checkbox => checkbox.dataset.interval);
+}
+
+/**
+ * 处理批量截图
+ */
+async function handleBatchCapture() {
   if (isCapturing) {
     console.log('[TV SnapMaster Popup] 截图进行中，忽略点击');
     return;
   }
 
-  const interval = button.dataset.interval;
-  console.log('[TV SnapMaster Popup] 点击周期按钮:', interval);
+  const intervals = getSelectedIntervals();
 
-  // 开始截图流程
-  startCapture(button, interval);
+  if (intervals.length === 0) {
+    showError('请至少选择一个周期');
+    return;
+  }
+
+  console.log('[TV SnapMaster Popup] 开始批量截图:', intervals);
+
+  // 开始批量截图流程
+  await startBatchCapture(intervals);
 }
 
 /**
- * 开始截图
- * @param {HTMLButtonElement} button - 按钮元素
- * @param {string} interval - 时间周期
+ * 开始批量截图
+ * @param {string[]} intervals - 周期数组
  */
-async function startCapture(button, interval) {
+async function startBatchCapture(intervals) {
   isCapturing = true;
   hideError();
 
-  // 设置按钮状态
-  button.classList.add('loading');
+  // 设置UI状态
+  elements.batchCaptureBtn.classList.add('loading');
   document.body.classList.add('loading');
-  disableAllButtons();
+  disableAllCheckboxes();
 
-  // 更新状态显示
-  updateStatus('working', '切换周期中...');
+  const total = intervals.length;
+  let completed = 0;
 
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -161,37 +199,64 @@ async function startCapture(button, interval) {
       throw new Error('无法获取当前标签页');
     }
 
-    // 发送截图请求
-    const response = await sendMessageToTab(tab.id, {
-      type: 'CAPTURE',
-      payload: {
-        id: generateUUID(),
-        interval: interval,
-        timestamp: Date.now()
+    // 依次处理每个周期
+    for (let i = 0; i < intervals.length; i++) {
+      const interval = intervals[i];
+
+      // 更新进度状态
+      updateStatus('working', `正在处理 ${i + 1}/${total}: ${interval}`);
+
+      // 高亮当前处理的周期
+      highlightProcessingInterval(interval);
+
+      try {
+        // 发送截图请求
+        const response = await sendMessageToTab(tab.id, {
+          type: 'CAPTURE',
+          payload: {
+            id: generateUUID(),
+            interval: interval,
+            timestamp: Date.now()
+          }
+        });
+
+        console.log(`[TV SnapMaster Popup] 截图响应 ${interval}:`, response);
+
+        if (response && response.status === 'complete') {
+          completed++;
+        } else if (response && response.status === 'error') {
+          console.error(`[TV SnapMaster Popup] 截图失败 ${interval}:`, response.error);
+          // 继续处理下一个，不中断整个流程
+        }
+
+        // 等待一小段时间再进行下一个截图
+        if (i < intervals.length - 1) {
+          await sleep(500);
+        }
+
+      } catch (error) {
+        console.error(`[TV SnapMaster Popup] 处理周期 ${interval} 时出错:`, error);
+        // 继续处理下一个
       }
-    });
-
-    console.log('[TV SnapMaster Popup] 截图响应:', response);
-
-    if (response && response.status === 'complete') {
-      updateStatus('success', '截图完成！');
-      setTimeout(() => {
-        updateStatus('idle', '准备就绪');
-      }, 2000);
-    } else if (response && response.status === 'error') {
-      showError(response.error?.message || '截图失败');
-      updateStatus('error', '截图失败');
     }
 
+    // 全部完成
+    updateStatus('success', `完成！已截图 ${completed}/${total} 个周期`);
+
+    setTimeout(() => {
+      updateStatus('idle', '准备就绪');
+      clearHighlights();
+    }, 3000);
+
   } catch (error) {
-    console.error('[TV SnapMaster Popup] 截图错误:', error);
+    console.error('[TV SnapMaster Popup] 批量截图错误:', error);
     showError(error.message || '发生错误');
     updateStatus('error', '发生错误');
   } finally {
-    // 重置按钮状态
-    button.classList.remove('loading');
+    // 重置UI状态
+    elements.batchCaptureBtn.classList.remove('loading');
     document.body.classList.remove('loading');
-    enableAllButtons();
+    enableAllCheckboxes();
     isCapturing = false;
   }
 }
@@ -229,39 +294,65 @@ function hideError() {
 }
 
 /**
- * 高亮当前周期按钮
+ * 高亮当前周期
  * @param {string} interval - 当前周期
  */
 function highlightCurrentInterval(interval) {
-  elements.intervalButtons.forEach(btn => {
-    if (btn.dataset.interval === interval) {
-      btn.classList.add('active');
-    } else {
-      btn.classList.remove('active');
+  clearHighlights();
+  elements.intervalItems.forEach(item => {
+    const checkbox = item.querySelector('.interval-checkbox');
+    if (checkbox && checkbox.dataset.interval === interval) {
+      item.classList.add('active');
     }
   });
 }
 
-// ============================================================================
-// 按钮状态
-// ============================================================================
-
 /**
- * 禁用所有按钮
+ * 高亮正在处理的周期
+ * @param {string} interval - 正在处理的周期
  */
-function disableAllButtons() {
-  elements.intervalButtons.forEach(btn => {
-    btn.disabled = true;
+function highlightProcessingInterval(interval) {
+  clearHighlights();
+  elements.intervalItems.forEach(item => {
+    const checkbox = item.querySelector('.interval-checkbox');
+    if (checkbox && checkbox.dataset.interval === interval) {
+      item.classList.add('active');
+    }
   });
 }
 
 /**
- * 启用所有按钮
+ * 清除所有高亮
  */
-function enableAllButtons() {
-  elements.intervalButtons.forEach(btn => {
-    btn.disabled = false;
+function clearHighlights() {
+  elements.intervalItems.forEach(item => {
+    item.classList.remove('active');
   });
+}
+
+// ============================================================================
+// 复选框和按钮状态
+// ============================================================================
+
+/**
+ * 禁用所有复选框
+ */
+function disableAllCheckboxes() {
+  elements.intervalCheckboxes.forEach(checkbox => {
+    checkbox.disabled = true;
+  });
+  elements.batchCaptureBtn.disabled = true;
+}
+
+/**
+ * 启用所有复选框
+ */
+function enableAllCheckboxes() {
+  elements.intervalCheckboxes.forEach(checkbox => {
+    checkbox.disabled = false;
+  });
+  // 批量截图按钮状态取决于是否有选中的周期
+  handleCheckboxChange();
 }
 
 // ============================================================================
@@ -324,4 +415,13 @@ function generateUUID() {
     const v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
   });
+}
+
+/**
+ * 延迟函数
+ * @param {number} ms - 延迟毫秒数
+ * @returns {Promise<void>}
+ */
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }

@@ -11,13 +11,15 @@
  * 支持的时间周期
  * @type {readonly string[]}
  */
-const INTERVALS = Object.freeze(['15m', '1h', '4h', '1D', '1W']);
+const INTERVALS = Object.freeze(['1m', '5m', '15m', '1h', '4h', '1D', '1W']);
 
 /**
  * 周期显示标签
  * @type {Object.<string, string>}
  */
 const INTERVAL_LABELS = Object.freeze({
+  '1m': '1 分钟',
+  '5m': '5 分钟',
   '15m': '15 分钟',
   '1h': '1 小时',
   '4h': '4 小时',
@@ -31,6 +33,8 @@ const INTERVAL_LABELS = Object.freeze({
  * @type {Object.<string, string>}
  */
 const INTERVAL_KEYBOARD_INPUT = Object.freeze({
+  '1m': '1',
+  '5m': '5',
   '15m': '15',
   '1h': '60',
   '4h': '240',

@@ -127,6 +127,8 @@ function normalizeIntervalText(text) {
 
   const normalized = text.trim().toLowerCase();
   const map = {
+    '1': '1m', '1m': '1m', '1分': '1m', '1分钟': '1m',
+    '5': '5m', '5m': '5m', '5分': '5m', '5分钟': '5m',
     '15': '15m', '15m': '15m', '15分': '15m', '15分钟': '15m',
     '60': '1h', '1h': '1h', '1小时': '1h',
     '240': '4h', '4h': '4h', '4小时': '4h',
@@ -216,6 +218,8 @@ async function switchIntervalByKeyboard(interval) {
 
   // 转换为 TradingView 键盘输入格式
   const keyboardMap = {
+    '1m': '1',
+    '5m': '5',
     '15m': '15',
     '1h': '60',
     '4h': '240',

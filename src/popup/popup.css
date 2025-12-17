@@ -54,8 +54,8 @@ body.theme-light {
 }
 
 body {
-  width: 280px;
-  min-height: 200px;
+  width: 320px;
+  min-height: 240px;
   font-family: -apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif;
   font-size: 13px;
   background-color: var(--bg-primary);
@@ -91,73 +91,126 @@ body {
 }
 
 /* ============================================================================
-   周期按钮
+   周期选择器
    ============================================================================ */
 
 .interval-buttons {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
-  justify-content: center;
   margin-bottom: 16px;
 }
 
-.interval-btn {
-  flex: 1;
-  padding: 10px 8px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
+.interval-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
   background-color: var(--bg-button);
-  border: 1px solid var(--border-color);
+  border: 2px solid var(--border-color);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s ease;
+  user-select: none;
 }
 
-.interval-btn:hover:not(:disabled) {
+.interval-item:hover {
   background-color: var(--bg-button-hover);
   border-color: var(--accent-color);
 }
 
-.interval-btn:active:not(:disabled) {
-  background-color: var(--bg-button-active);
-  transform: translateY(1px);
+.interval-checkbox {
+  display: none;
 }
 
-.interval-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.interval-btn.active {
-  background-color: var(--accent-color);
-  border-color: var(--accent-color);
+.interval-checkbox:checked + .interval-label {
   color: #ffffff;
 }
 
-.interval-btn.loading {
-  position: relative;
-  color: transparent;
+.interval-checkbox:checked ~ .interval-label {
+  color: #ffffff;
 }
 
-.interval-btn.loading::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 14px;
-  height: 14px;
-  margin: -7px 0 0 -7px;
-  border: 2px solid var(--text-secondary);
-  border-top-color: var(--accent-color);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+.interval-item:has(.interval-checkbox:checked) {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+}
+
+.interval-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  transition: color 0.15s ease;
+  pointer-events: none;
+}
+
+.interval-item.active {
+  outline: 2px solid var(--success-color);
+  outline-offset: -2px;
 }
 
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* ============================================================================
+   操作按钮
+   ============================================================================ */
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.action-btn {
+  flex: 1;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.action-btn.primary {
+  background-color: var(--accent-color);
+  color: #ffffff;
+}
+
+.action-btn.primary:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+}
+
+.action-btn.primary:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-btn.loading {
+  position: relative;
+  color: transparent;
+}
+
+.action-btn.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 
 /* ============================================================================
@@ -264,11 +317,12 @@ body {
    加载状态覆盖
    ============================================================================ */
 
-body.loading .interval-btn {
+body.loading .interval-item {
   pointer-events: none;
-  opacity: 0.7;
+  opacity: 0.5;
 }
 
-body.loading .interval-btn:not(.loading) {
+body.loading .action-btn:not(.loading) {
+  pointer-events: none;
   opacity: 0.5;
 }

@@ -16,11 +16,41 @@
 
     <!-- 周期按钮组 -->
     <div class="interval-buttons">
-      <button class="interval-btn" data-interval="15m">15m</button>
-      <button class="interval-btn" data-interval="1h">1h</button>
-      <button class="interval-btn" data-interval="4h">4h</button>
-      <button class="interval-btn" data-interval="1D">1D</button>
-      <button class="interval-btn" data-interval="1W">1W</button>
+      <label class="interval-item">
+        <input type="checkbox" class="interval-checkbox" data-interval="1m">
+        <span class="interval-label">1m</span>
+      </label>
+      <label class="interval-item">
+        <input type="checkbox" class="interval-checkbox" data-interval="5m">
+        <span class="interval-label">5m</span>
+      </label>
+      <label class="interval-item">
+        <input type="checkbox" class="interval-checkbox" data-interval="15m">
+        <span class="interval-label">15m</span>
+      </label>
+      <label class="interval-item">
+        <input type="checkbox" class="interval-checkbox" data-interval="1h">
+        <span class="interval-label">1h</span>
+      </label>
+      <label class="interval-item">
+        <input type="checkbox" class="interval-checkbox" data-interval="4h">
+        <span class="interval-label">4h</span>
+      </label>
+      <label class="interval-item">
+        <input type="checkbox" class="interval-checkbox" data-interval="1D">
+        <span class="interval-label">1D</span>
+      </label>
+      <label class="interval-item">
+        <input type="checkbox" class="interval-checkbox" data-interval="1W">
+        <span class="interval-label">1W</span>
+      </label>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="action-buttons">
+      <button class="action-btn primary" id="batchCaptureBtn" disabled>
+        批量截图
+      </button>
     </div>
 
     <!-- 状态显示区域 -->
@@ -40,7 +70,7 @@
 
     <!-- 提示信息 -->
     <div class="hint" id="hint">
-      点击按钮截取对应周期的图表
+      选择一个或多个周期，点击批量截图
     </div>
   </div>
 
