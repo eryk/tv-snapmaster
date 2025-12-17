@@ -39,3 +39,7 @@ build/
 
 # Test coverage
 coverage/
+
+# Claude and Specify metadata
+.claude/
+.specify/
